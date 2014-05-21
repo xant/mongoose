@@ -132,7 +132,7 @@ Mongoose source code contains a well-commented example code, listed below:
    * [upload.c](https://github.com/cesanta/mongoose/blob/master/examples/post.c)
    shows how to upload files
    * [websocket.c](https://github.com/cesanta/mongoose/blob/master/examples/websocket.c) demonstrates websocket usage
-   * [auth.c](https://github.com/cesanta/mongoose/blob/master/examples/websocket.c) demonstrates API-controlled Digest authorization
+   * [auth.c](https://github.com/cesanta/mongoose/blob/master/examples/auth.c) demonstrates API-controlled Digest authorization
    * [mjpg.c](https://github.com/cesanta/mongoose/blob/master/examples/mjpg.c) demonstrates MJPEG streaming implementation
 
 ## Compilation flags
@@ -175,3 +175,5 @@ all Net Skeleton functions will be available too.
     -DNS_STACK_SIZE=X         Sets stack size to X for  ns_start_thread()
     -DNS_DISABLE_THREADS      Disable threads support
     -DNS_DISABLE_SOCKETPAIR   For systems without loopback interface
+    -DMONGOOSE_SEND_NS_EVENTS Send Net Skeleton events to the event handler
+                              in addition to the Mongoose events

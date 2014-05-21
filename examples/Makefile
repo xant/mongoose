@@ -12,6 +12,8 @@ ifeq ($(OS),Windows_NT)
   CFLAGS += $(CFLAGS_EXTRA)
 else
   UNAME_S := $(shell uname -s)
+  CC = g++
+  CFLAGS += -lssl -g -O0
 
   ifeq ($(UNAME_S),Linux)
     CFLAGS += -ldl
@@ -48,15 +50,22 @@ upload: upload.c ../mongoose.c
 auth: auth.c ../mongoose.c
 	$(CC) auth.c ../mongoose.c $(OUT) $(CFLAGS)
 
+form: form.c ../mongoose.c
+	$(CC) form.c ../mongoose.c $(OUT) $(CFLAGS)
+
 mjpg: mjpg.c ../mongoose.c
 	$(CC) mjpg.c ../mongoose.c $(OUT) $(CFLAGS)
 
+proxy: proxy.c ../mongoose.c
+	$(CC) proxy.c ../mongoose.c $(OUT) \
+		-I../../net_skeleton -DNS_ENABLE_SSL -lssl $(CFLAGS)
 
 websocket_html.c: websocket.html
 	perl mkdata.pl $< > $@
 
 u:
-	g++ unit_test.c -Wall -W -pedantic -lssl -g -O0 $(CFLAGS_EXTRA) && ./a.out
+	$(CC) unit_test.c $(OUT) $(CFLAGS)
+	./$@
 
 clean:
-	-@$(RM) hello mjpg upload post websocket auth server multi_threaded websocket_html.c *.exe *.dSYM *.obj .*o
+	-@$(RM) hello mjpg upload post websocket auth server multi_threaded proxy websocket_html.c *.exe *.dSYM *.obj .*o u a.out

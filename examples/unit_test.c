@@ -166,34 +166,34 @@ static const char *test_should_keep_alive(void) {
 }
 
 static const char *test_match_prefix(void) {
-  ASSERT(match_prefix("/api", 4, "/api") == 4);
-  ASSERT(match_prefix("/a/", 3, "/a/b/c") == 3);
-  ASSERT(match_prefix("/a/", 3, "/ab/c") == -1);
-  ASSERT(match_prefix("/*/", 3, "/ab/c") == 4);
-  ASSERT(match_prefix("**", 2, "/a/b/c") == 6);
-  ASSERT(match_prefix("/*", 2, "/a/b/c") == 2);
-  ASSERT(match_prefix("*/*", 3, "/a/b/c") == 2);
-  ASSERT(match_prefix("**/", 3, "/a/b/c") == 5);
-  ASSERT(match_prefix("**.foo|**.bar", 13, "a.bar") == 5);
-  ASSERT(match_prefix("a|b|cd", 6, "cdef") == 2);
-  ASSERT(match_prefix("a|b|c?", 6, "cdef") == 2);
-  ASSERT(match_prefix("a|?|cd", 6, "cdef") == 1);
-  ASSERT(match_prefix("/a/**.cgi", 9, "/foo/bar/x.cgi") == -1);
-  ASSERT(match_prefix("/a/**.cgi", 9, "/a/bar/x.cgi") == 12);
-  ASSERT(match_prefix("**/", 3, "/a/b/c") == 5);
-  ASSERT(match_prefix("**/$", 4, "/a/b/c") == -1);
-  ASSERT(match_prefix("**/$", 4, "/a/b/") == 5);
-  ASSERT(match_prefix("$", 1, "") == 0);
-  ASSERT(match_prefix("$", 1, "x") == -1);
-  ASSERT(match_prefix("*$", 2, "x") == 1);
-  ASSERT(match_prefix("/$", 2, "/") == 1);
-  ASSERT(match_prefix("**/$", 4, "/a/b/c") == -1);
-  ASSERT(match_prefix("**/$", 4, "/a/b/") == 5);
-  ASSERT(match_prefix("*", 1, "/hello/") == 0);
-  ASSERT(match_prefix("**.a$|**.b$", 11, "/a/b.b/") == -1);
-  ASSERT(match_prefix("**.a$|**.b$", 11, "/a/b.b") == 6);
-  ASSERT(match_prefix("**.a$|**.b$", 11, "/a/B.A") == 6);
-  ASSERT(match_prefix("**o$", 4, "HELLO") == 5);
+  ASSERT(mg_match_prefix("/api", 4, "/api") == 4);
+  ASSERT(mg_match_prefix("/a/", 3, "/a/b/c") == 3);
+  ASSERT(mg_match_prefix("/a/", 3, "/ab/c") == -1);
+  ASSERT(mg_match_prefix("/*/", 3, "/ab/c") == 4);
+  ASSERT(mg_match_prefix("**", 2, "/a/b/c") == 6);
+  ASSERT(mg_match_prefix("/*", 2, "/a/b/c") == 2);
+  ASSERT(mg_match_prefix("*/*", 3, "/a/b/c") == 2);
+  ASSERT(mg_match_prefix("**/", 3, "/a/b/c") == 5);
+  ASSERT(mg_match_prefix("**.foo|**.bar", 13, "a.bar") == 5);
+  ASSERT(mg_match_prefix("a|b|cd", 6, "cdef") == 2);
+  ASSERT(mg_match_prefix("a|b|c?", 6, "cdef") == 2);
+  ASSERT(mg_match_prefix("a|?|cd", 6, "cdef") == 1);
+  ASSERT(mg_match_prefix("/a/**.cgi", 9, "/foo/bar/x.cgi") == -1);
+  ASSERT(mg_match_prefix("/a/**.cgi", 9, "/a/bar/x.cgi") == 12);
+  ASSERT(mg_match_prefix("**/", 3, "/a/b/c") == 5);
+  ASSERT(mg_match_prefix("**/$", 4, "/a/b/c") == -1);
+  ASSERT(mg_match_prefix("**/$", 4, "/a/b/") == 5);
+  ASSERT(mg_match_prefix("$", 1, "") == 0);
+  ASSERT(mg_match_prefix("$", 1, "x") == -1);
+  ASSERT(mg_match_prefix("*$", 2, "x") == 1);
+  ASSERT(mg_match_prefix("/$", 2, "/") == 1);
+  ASSERT(mg_match_prefix("**/$", 4, "/a/b/c") == -1);
+  ASSERT(mg_match_prefix("**/$", 4, "/a/b/") == 5);
+  ASSERT(mg_match_prefix("*", 1, "/hello/") == 0);
+  ASSERT(mg_match_prefix("**.a$|**.b$", 11, "/a/b.b/") == -1);
+  ASSERT(mg_match_prefix("**.a$|**.b$", 11, "/a/b.b") == 6);
+  ASSERT(mg_match_prefix("**.a$|**.b$", 11, "/a/B.A") == 6);
+  ASSERT(mg_match_prefix("**o$", 4, "HELLO") == 5);
   return NULL;
 }
 
@@ -268,6 +268,17 @@ static const char *test_url_decode(void) {
 
   ASSERT(mg_url_decode("%61", 3, buf, sizeof(buf), 1) == 1);
   ASSERT(strcmp(buf, "a") == 0);
+  return NULL;
+}
+
+static const char *test_url_encode(void) {
+  char buf[100];
+  ASSERT(mg_url_encode("", 0, buf, sizeof(buf)) == 0);
+  ASSERT(buf[0] == '\0');
+  ASSERT(mg_url_encode("foo", 3, buf, sizeof(buf)) == 3);
+  ASSERT(strcmp(buf, "foo") == 0);
+  ASSERT(mg_url_encode("f o", 3, buf, sizeof(buf)) == 5);
+  ASSERT(strcmp(buf, "f%20o") == 0);
   return NULL;
 }
 
@@ -491,6 +502,21 @@ static const char *test_rewrites(void) {
   return NULL;
 }
 
+static const char *test_mg_parse_url(void) {
+  unsigned short port;
+  char a[100], b[100];
+  ASSERT(parse_url("", a, sizeof(a), b, sizeof(b), &port) == 0);
+  ASSERT(parse_url("ws://foo ", a, sizeof(a), b, sizeof(b), &port) == 8);
+  ASSERT(strcmp(a, "ws") == 0 && strcmp(b, "foo") == 0 && port == 80);
+  ASSERT(parse_url("xx://y:123 ", a, sizeof(a), b, sizeof(b), &port) == 10);
+  ASSERT(strcmp(a, "xx") == 0 && strcmp(b, "y") == 0 && port == 123);
+  ASSERT(parse_url(" foo ", a, sizeof(a), b, sizeof(b), &port) == 0);
+  ASSERT(parse_url(" foo:44 ", a, sizeof(a), b, sizeof(b), &port) == 0);
+  ASSERT(parse_url("foo:44 ", a, sizeof(a), b, sizeof(b), &port) == 6);
+  ASSERT(strcmp(a, "") == 0 && strcmp(b, "foo") == 0 && port == 44);
+  return NULL;
+}
+
 static const char *run_all_tests(void) {
   RUN_TEST(test_should_keep_alive);
   RUN_TEST(test_match_prefix);
@@ -498,6 +524,7 @@ static const char *run_all_tests(void) {
   RUN_TEST(test_parse_http_message);
   RUN_TEST(test_to64);
   RUN_TEST(test_url_decode);
+  RUN_TEST(test_url_encode);
   RUN_TEST(test_base64_encode);
   RUN_TEST(test_mg_parse_header);
   RUN_TEST(test_get_var);
@@ -506,6 +533,7 @@ static const char *run_all_tests(void) {
   RUN_TEST(test_mg_set_option);
   RUN_TEST(test_server);
   RUN_TEST(test_rewrites);
+  RUN_TEST(test_mg_parse_url);
   return NULL;
 }
 

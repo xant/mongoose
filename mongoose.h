@@ -37,7 +37,7 @@ struct mg_connection {
   const char *query_string;   // URL part after '?', not including '?', or NULL
 
   char remote_ip[48];         // Max IPv6 string length is 45 characters
-  const char *local_ip;       // Local IP address
+  char local_ip[48];          // Local IP address
   unsigned short remote_port; // Client's port
   unsigned short local_port;  // Local port number
 
@@ -48,13 +48,14 @@ struct mg_connection {
   } http_headers[30];
 
   char *content;              // POST (or websocket message) data, or NULL
-  size_t content_len;       // content length
+  size_t content_len;         // Data length
 
   int is_websocket;           // Connection is a websocket connection
   int status_code;            // HTTP status code for HTTP error handler
   int wsbits;                 // First byte of the websocket frame
   void *server_param;         // Parameter passed to mg_add_uri_handler()
   void *connection_param;     // Placeholder for connection-specific data
+  void *callback_param;       // Needed by mg_iterate_over_connections()
 };
 
 struct mg_server; // Opaque structure describing server instance
@@ -65,11 +66,21 @@ enum mg_event {
   MG_AUTH,        // If callback returns MG_FALSE, authentication fails
   MG_REQUEST,     // If callback returns MG_FALSE, Mongoose continues with req
   MG_REPLY,       // If callback returns MG_FALSE, Mongoose closes connection
-  MG_CLOSE,       // Connection is closed
-  MG_LUA,         // Called before LSP page invoked
+  MG_CLOSE,       // Connection is closed, callback return value is ignored
+  MG_WS_HANDSHAKE,  // New websocket connection, handshake request
   MG_HTTP_ERROR   // If callback returns MG_FALSE, Mongoose continues with err
 };
 typedef int (*mg_handler_t)(struct mg_connection *, enum mg_event);
+
+// Websocket opcodes, from http://tools.ietf.org/html/rfc6455
+enum {
+  WEBSOCKET_OPCODE_CONTINUATION = 0x0,
+  WEBSOCKET_OPCODE_TEXT = 0x1,
+  WEBSOCKET_OPCODE_BINARY = 0x2,
+  WEBSOCKET_OPCODE_CONNECTION_CLOSE = 0x8,
+  WEBSOCKET_OPCODE_PING = 0x9,
+  WEBSOCKET_OPCODE_PONG = 0xa
+};
 
 // Server management functions
 struct mg_server *mg_create_server(void *server_param, mg_handler_t handler);
@@ -80,8 +91,9 @@ const char **mg_get_valid_option_names(void);
 const char *mg_get_option(const struct mg_server *server, const char *name);
 void mg_set_listening_socket(struct mg_server *, int sock);
 int mg_get_listening_socket(struct mg_server *);
-void mg_iterate_over_connections(struct mg_server *, mg_handler_t);
+void mg_iterate_over_connections(struct mg_server *, mg_handler_t, void *);
 void mg_wakeup_server(struct mg_server *);
+void mg_wakeup_server_ex(struct mg_server *, mg_handler_t, const char *, ...);
 struct mg_connection *mg_connect(struct mg_server *, const char *, int, int);
 
 // Connection management functions
@@ -92,6 +104,8 @@ void mg_printf_data(struct mg_connection *, const char *format, ...);
 
 int mg_websocket_write(struct mg_connection *, int opcode,
                        const char *data, size_t data_len);
+int mg_websocket_printf(struct mg_connection* conn, int opcode,
+                        const char *fmt, ...);
 
 // Deprecated in favor of mg_send_* interface
 int mg_write(struct mg_connection *, const void *buf, int len);
@@ -111,16 +125,17 @@ int mg_parse_multipart(const char *buf, int buf_len,
 void *mg_start_thread(void *(*func)(void *), void *param);
 char *mg_md5(char buf[33], ...);
 int mg_authorize_digest(struct mg_connection *c, FILE *fp);
+int mg_url_encode(const char *src, size_t s_len, char *dst, size_t dst_len);
+int mg_url_decode(const char *src, int src_len, char *dst, int dst_len, int);
 
-// Lua utility functions
-#ifdef MONGOOSE_USE_LUA
-#include <lua.h>
-#include <lauxlib.h>
-void reg_string(lua_State *L, const char *name, const char *val);
-void reg_int(lua_State *L, const char *name, int val);
-void reg_function(lua_State *L, const char *,
-                         lua_CFunction, struct mg_connection *);
-#endif
+// Templates support
+struct mg_expansion {
+  const char *keyword;
+  void (*handler)(struct mg_connection *);
+};
+void mg_template(struct mg_connection *, const char *text,
+                 struct mg_expansion *expansions);
+
 
 #ifdef __cplusplus
 }

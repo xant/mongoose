@@ -84,10 +84,10 @@ occur. Sequence of events for the accepted connection is this:
    * `MG_HTTP_ERROR` sent when Mongoose is about to send HTTP error back
       to the client. Event handler can choose to send a reply itself, in which
       case event handler must return `MG_TRUE`. Otherwise, event handler must
-      return `MG_FALSE`
+      return `MG_FALSE`.
    * `MG_CLOSE` is sent when the connection is closed. This event is used
       to cleanup per-connection state stored in `connection_param`
-      if it was allocated.
+      if it was allocated. Event handler return value is ignored.
 
 Sequence of events for the client connection is this:
 
@@ -96,7 +96,11 @@ Sequence of events for the client connection is this:
    Connection status is held in `mg_connection::status_code`: if zero,
    then connection was successful, otherwise connection was not established.
    User should send a request upon successful connection.
+   Event handler should return `MG_TRUE` if connection was successful and
+   HTTP request has been sent. Otherwise, it should send `MG_FALSE`.
    * `MG_REPLY` is sent when response has been received from the remote host.
+   If event handler sends another request, then it should return `MG_TRUE`.
+   Otherwise it should return `MG_FALSE` and Mongoose will close the connection.
    * `MG_CLOSE` same as for the accepted connection.
 
 
@@ -132,23 +136,14 @@ given parameter name is not valid, NULL is returned. For valid names, return
 value is guaranteed to be non-NULL. If parameter is not set, zero-length string
 is returned.
 
+    void mg_wakeup_server_ex(struct mg_server *, mg_handler_t func,
+                             const char *fmt, ...);
 
-    void mg_iterate_over_connections(struct mg_server *, mg_handler_t func);
-
-This is an interface primarily designed to push arbitrary data to websocket
-connections at any time. This function could be called from the Mongoose thread
-only.  When it returns, Mongoose thread calls `func()` for each active
-connection.
-It is allowed to call `mg_send_data()` or `mg_websocket_write()` within a
-callback, cause `func` is executed in the context of the Mongoose thread.
-
-    void mg_wakeup_server(struct mg_server *);
-
-Makes `mg_poll_server()` that could be sleeping in the `select()` syscall
-to break the call and return. This function can be called from any thread.
-It is designed to let other threads wake up Mongoose thread from the sleep
-and let it do a fresh new IO iteration over all connection. Usually it is done
-when other threads decides there is new data ready to be sent by Mongoose.
+Sends string message to a server. Function `func` is called for every active
+connection. String message is passed in `struct mg_connection::callback_param`.
+This function is designed to push data to the connected clients, and
+can be called from any thread. There is a limitation on the length of
+the message, currently at 8 kilobytes.
 
     void mg_send_status(struct mg_connection *, int status_code);
     void mg_send_header(struct mg_connection *, const char *name,
