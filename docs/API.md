@@ -1,6 +1,6 @@
 # Mongoose API Reference
 
-    struct mg_server *mg_create_server(void *server_param);
+    struct mg_server *mg_create_server(void *server_param, mg_handler_t handler);
 
 Creates web server instance. Returns opaque instance pointer, or NULL if
 there is not enough memory. `server_param`: Could be any pointer, or NULL.
@@ -43,7 +43,7 @@ allowed to call `mg_set_option()` by the same thread that does
 `mg_poll_server()` (Mongoose thread) and change server configuration while it
 is serving, in between `mg_poll_server()` calls.
 
-    void mg_poll_server(struct mg_server *server, int milliseconds);
+    int mg_poll_server(struct mg_server *server, int milliseconds);
 
 Performs one iteration of IO loop by iterating over all
 active connections, performing `select()` syscall on all sockets with a timeout
@@ -121,6 +121,8 @@ of the websocket frame which URI handler can examine. Note that to
 reply to the websocket client, `mg_websocket_write()` should be used.
 To reply to the plain HTTP client, `mg_write_data()` should be used.
 
+Return value: number of active connections.
+
 
     const char **mg_get_valid_option_names(void);
 
@@ -172,11 +174,23 @@ a response body.  Mongoose provides functions for all three parts:
 
 <!-- -->
 
-    int mg_websocket_write(struct mg_connection* conn, int opcode,
-                           const char *data, size_t data_len);
+     void mg_send_file(struct mg_connection *, const char *path);
 
-Similar to `mg_write()`, but wraps the data into a websocket frame with a
-given websocket `opcode`.  
+Tells Mongoose to serve given file. Mongoose handles file according to
+it's extensions, i.e. Mongoose will invoke CGI script if `path` has CGI
+extension, it'll render SSI file if `path` has SSI extension, etc. If `path`
+points to a directory, Mongoose will show directory listing. If this function
+is used, no calls to `mg_send*` or `mg_printf*` functions must be made, and
+event handler must return `MG_MORE`.
+
+    size_t mg_websocket_write(struct mg_connection* conn, int opcode,
+                              const char *data, size_t data_len);
+    size_t mg_websocket_printf(struct mg_connection* conn, int opcode,
+                               const char *fmt, ...);
+
+
+Similar to `mg_write()` and `mg_printf()`, but wraps the data into a
+websocket frame with a given websocket `opcode`.
 
     const char *mg_get_header(const struct mg_connection *, const char *name);
 
@@ -208,16 +222,15 @@ the length of the fetched value, or 0 if variable not found.
                                  const char *user,
                                  const char *password);
 
-Add, edit or delete the entry in the passwords file.  
+Add, edit or delete the entry in the passwords file.
 This function allows an application to manipulate .htpasswd files on the
 fly by adding, deleting and changing user records. This is one of the
-several ways of implementing authentication on the server side. For another,
-cookie-based way please refer to the examples/chat.c in the source tree.  
+several ways of implementing authentication on the server side.
 If password is not NULL, entry is added (or modified if already exists).
-If password is NULL, entry is deleted.  
+If password is NULL, entry is deleted.
 Return: 1 on success, 0 on error.
 
-   
+
     int mg_parse_multipart(const char *buf, int buf_len,
                            char *var_name, int var_name_len,
                            char *file_name, int file_name_len,
